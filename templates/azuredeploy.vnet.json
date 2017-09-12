@@ -1,0 +1,64 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "vnetName" : {
+          "type": "string",
+          "defaultValue": "KubernetesCustomVNET"
+      },
+      "subnetCIDR" : {
+        "type": "string"
+      },
+      "gatewaySubnetCIDR" : {
+        "type": "string",
+        "defaultValue" : "10.2.255.0/29"
+      }
+    },
+    "variables": {  
+      "subnetName" : "KubernetesSubnet",
+      "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vnetName'))]",
+      "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]"
+  
+    },
+    "resources": [
+      {
+        "apiVersion": "2016-03-30",
+        "location": "[resourceGroup().location]",
+        "name": "[parameters('vnetName')]",
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "[parameters('subnetCIDR')]"
+            ]
+          },
+          "subnets": [
+            {
+              "name": "[variables('subnetName')]",
+              "properties": {
+                "addressPrefix": "[parameters('subnetCIDR')]"
+              }
+            },
+            {
+              "name": "GatewaySubnet",
+              "properties": {
+                "addressPrefix": "[parameters('gatewaySubnetCIDR')]"
+              }
+              
+            }
+          ]
+        },
+        "type": "Microsoft.Network/virtualNetworks"
+      }
+    ],
+    "outputs": {
+      "vnetid" : {
+        "type": "string",
+        "value": "[variables('vnetID')]"
+      },
+      "subnetRef" : {
+        "type": "string",
+        "value": "[variables('subnetRef')]"
+      }
+    }
+  }
+  

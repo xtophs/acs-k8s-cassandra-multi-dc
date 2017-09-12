@@ -13,14 +13,14 @@
       "dnsPrefix": "",
       "vmSize": "Standard_D2_v2",
       "vnetSubnetId": "",
-      "firstConsecutiveStaticIP": "10.1.255.239",
-      "vnetCidr": "10.1.0.0/16"
+      "firstConsecutiveStaticIP": "",
+      "vnetCidr": ""
     },
     "agentPoolProfiles": [
       {
         "name": "agentpri",
         "count": 1,
-        "vmSize": "Standard_D2_v2",
+        "vmSize": "Standard_DS4_v2",
         "vnetSubnetId": "",
         "availabilityProfile": "AvailabilitySet"
       }

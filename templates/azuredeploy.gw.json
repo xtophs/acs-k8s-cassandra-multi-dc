@@ -1,0 +1,122 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "gwName": {
+            "type": "string"
+        },
+        "sku": {
+            "type": "string"
+        },
+        "gatewayType": {
+            "type": "string",
+            "defaultValue": "Vpn",
+            "allowedValues": [
+                "Vpn",
+                "ExpressRoute"
+            ]
+        },
+        "vpnType": {
+            "type": "string",
+            "defaultValue": "RouteBased",
+            "allowedValues": [
+                "RouteBased",
+                "PolicyBased"
+            ]
+        },
+        "subnetName": {
+            "type": "string"
+        },
+        "subnetCidr": {
+            "type": "string"
+        },
+        "vnetName" : {
+            "type" : "string"
+        },
+        "vnetCidr": {
+            "type": "string"
+        },        
+        "gatewaySubnetCidr" : {
+            "type": "string"
+        }
+    },
+    "variables": {
+        "ipAddressName": "[concat(parameters('gwName'), '-ip')]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2016-03-30",
+            "location": "[resourceGroup().location]",
+            "name": "[parameters('vnetName')]",
+            "properties": {
+              "addressSpace": {
+                "addressPrefixes": [
+                  "[parameters('vnetCIDR')]"
+                ]
+              },
+              "subnets": [
+                {
+                  "name": "[parameters('subnetName')]",
+                  "properties": {
+                    "addressPrefix": "[parameters('subnetCIDR')]"
+                  }
+                }
+              ]
+            },
+            "type": "Microsoft.Network/virtualNetworks"
+          },        
+        {
+            "apiVersion": "2017-06-01",
+            "name": "[parameters('gwName')]",
+            "type": "Microsoft.Network/virtualNetworkGateways",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "Microsoft.Network/virtualNetworks/KubernetesCustomVNET/subnets/GatewaySubnet",
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('ipAddressName'))]"
+            ],
+            "properties": {
+                "gatewayType": "[parameters('gatewayType')]",
+                "ipConfigurations": [
+                    {
+                        "name": "default",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[resourceId(resourceGroup().Name, 'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'GatewaySubnet')]"
+                            },
+                            "publicIpAddress": {
+                                "id": "[resourceId(resourceGroup().Name, 'Microsoft.Network/publicIPAddresses', variables('ipAddressName'))]"
+                            }
+                        }
+                    }
+                ],
+                "vpnType": "[parameters('vpnType')]",
+                "sku": {
+                    "name": "[parameters('sku')]",
+                    "tier": "[parameters('sku')]"
+                }
+            }
+        },
+        {
+            "apiVersion": "2016-12-01",
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "name": "[concat(parameters('vnetName'), '/', 'GatewaySubnet')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressPrefix": "[parameters('gatewaySubnetCidr')]"
+            },
+            "dependsOn": [
+                "Microsoft.Network/virtualNetworks/KubernetesCustomVNET"
+            ]
+        },
+        {
+            "apiVersion": "2017-08-01",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('ipAddressName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic"
+            }
+        }
+    ]
+}

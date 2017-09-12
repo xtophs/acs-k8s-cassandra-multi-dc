@@ -13,8 +13,8 @@
       "dnsPrefix": "",
       "vmSize": "Standard_D2_v2",
       "vnetSubnetId": "",
-      "firstConsecutiveStaticIP": "10.1.255.239",
-      "vnetCidr": "10.239.0.0/16"
+      "firstConsecutiveStaticIP": "",
+      "vnetCidr": ""
     },
     "agentPoolProfiles": [
       {

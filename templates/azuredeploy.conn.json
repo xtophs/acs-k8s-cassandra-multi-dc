@@ -1,0 +1,36 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "gwName": {
+            "type": "string"
+        },
+        "gw2resourceGroup" : {
+            "type": "string"
+        },
+        "gw2Name" : {
+            "type": "string"
+        },
+        "connName" : {
+            "type": "string"
+        }
+    },
+    "resources": [
+        {
+            "name": "[parameters('connName')]",
+            "apiVersion": "2017-03-01",
+            "type": "Microsoft.Network/connections",
+            "location": "[resourceGroup().location]",
+            "properties": {
+              "virtualNetworkGateway1": {
+                "id": "[resourceId(resourceGroup().name, 'Microsoft.Network/virtualNetworkGateways', parameters('gwName'))]"
+              },
+              "virtualNetworkGateway2": {
+                "id": "[resourceId(parameters('gw2resourceGroup'), 'Microsoft.Network/virtualNetworkGateways', parameters('gw2Name'))]"
+              },
+              "connectionType": "Vnet2Vnet",
+              "sharedKey": "blabla"
+            }
+        }
+    ]
+}
