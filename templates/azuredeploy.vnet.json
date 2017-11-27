@@ -8,10 +8,6 @@
       },
       "subnetCIDR" : {
         "type": "string"
-      },
-      "gatewaySubnetCIDR" : {
-        "type": "string",
-        "defaultValue" : "10.2.255.0/29"
       }
     },
     "variables": {  
@@ -37,13 +33,6 @@
               "properties": {
                 "addressPrefix": "[parameters('subnetCIDR')]"
               }
-            },
-            {
-              "name": "GatewaySubnet",
-              "properties": {
-                "addressPrefix": "[parameters('gatewaySubnetCIDR')]"
-              }
-              
             }
           ]
         },

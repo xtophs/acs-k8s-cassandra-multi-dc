@@ -10,7 +10,7 @@
     },
     "masterProfile": {
       "count": 1,
-      "dnsPrefix": "",
+      "dnsPrefix": "xtoph-delete-rg69",
       "vmSize": "Standard_D2_v2",
       "vnetSubnetId": "",
       "firstConsecutiveStaticIP": "",
