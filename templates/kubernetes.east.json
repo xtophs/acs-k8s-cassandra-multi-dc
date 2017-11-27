@@ -3,7 +3,6 @@
   "properties": {
     "orchestratorProfile": {
       "orchestratorType": "Kubernetes",
-      "orchestratorRelease": "1.6",
       "kubernetesConfig": {
         "networkPolicy": "azure"
       }

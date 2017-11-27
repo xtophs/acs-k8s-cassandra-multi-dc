@@ -3,14 +3,13 @@
   "properties": {
     "orchestratorProfile": {
       "orchestratorType": "Kubernetes",
-      "orchestratorRelease": "1.6",
       "kubernetesConfig": {
         "networkPolicy": "azure"
       }
     },
     "masterProfile": {
       "count": 1,
-      "dnsPrefix": "xtoph-delete-rg69",
+      "dnsPrefix": "",
       "vmSize": "Standard_D2_v2",
       "vnetSubnetId": "",
       "firstConsecutiveStaticIP": "",
