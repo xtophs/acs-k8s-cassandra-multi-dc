@@ -139,6 +139,8 @@ deploy_peering()
 
     echo Peering ${THIS_VNET_ID} with ${OTHER_VNET_ID}
 
+    # TODO: Make this an ARM template so we have a
+    # tracked deployment
     az network vnet peering create \
       --name myVnet1ToMyVnet2 \
       --resource-group ${THIS_RG} \
@@ -266,58 +268,166 @@ set_ssh_exec()
         -o StrictHostKeyChecking=no azureuser@${IP_ADDRESS} "
 }
 
+wait_for_k8s()
+{
+    local status=$(${SSH_EXEC} kubectl version --short | grep -i "Server Version")
+
+    local i=0
+
+    echo Waiting for k8s
+
+    # wait for 20 minutes
+    while [  $i -le 60 ]
+    do
+        echo Status is ${status}
+        if [[  -z $status ]];
+        then 
+            break
+        fi
+
+        sleep 20
+        i=$[$i + 1]
+        echo Waiting $i status is ${status}
+        status=$(${SSH_EXEC} kubectl version --short | grep -i "Server Version") 
+    done    
+
+    if [[ -z $status ]];
+    then 
+        echo Kubernetes not running
+        exit 1
+    fi
+}
+
+
 install_helm()
 {
     ${SSH_EXEC} "curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash"
     ${SSH_EXEC} "echo export HELM_HOME=/home/azureuser/ >> .bashrc"
-    ${SSH_EXEC} "helm init"
-    sleep 30
+    ${SSH_EXEC} "kubectl cluster-info"
+    ${SSH_EXEC} "helm init --upgrade"
+
+
+    echo Tiller Pod ready?
+
+    local i=0
+
+    echo Waiting for tiller pod 
+    local itemCount=$(${SSH_EXEC} kubectl get pod \
+        --selector=name=tiller \
+        --namespace=kube-system \
+        -o jsonpath='{.items}' | jq -R -r '. | length' | head -n 1)
+
+    echo itemCount is $itemCount
+    # wait for 20 minutes
+    while [  $itemCount -le 2 ]
+    do
+        echo Waiting for tiller pod $i
+
+        sleep 20
+        i=$[$i + 1]
+        if [[ $i -eq 60 ]];
+        then
+            echo Tiller pod didnt come up 
+            exit 1
+        fi
+
+        itemCount=$(${SSH_EXEC} kubectl get pod \
+            --selector=name=tiller \
+            --namespace=kube-system \
+            -o jsonpath='{.items}' | jq -r -R '. | length' | head -n 1)
+    done
+
+    echo Tiller Container ready?
+    ${SSH_EXEC} kubectl get pod \
+        --selector=name=tiller \
+        --namespace=kube-system \
+        -o jsonpath='{.items[0].status}'
+
+    local status=$(${SSH_EXEC} kubectl get pod \
+        --selector=name=tiller \
+        --namespace=kube-system \
+        -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
+
+    local i=0
+
+    echo 
+
+    # wait for 20 minutes
+    while [  $i -le 60 ]
+    do
+        echo Status is ${status}
+        if [ $status = "true" ];
+        then 
+            break
+        fi
+
+        sleep 20
+        i=$[$i + 1]
+        echo Waiting $i status is ${status}
+        status=$(${SSH_EXEC} kubectl get pod \
+            --selector=name=tiller \
+            --namespace=kube-system \
+            -o jsonpath='{.items[0].status.containerStatuses[0].ready}') 
+    done    
+
+    if [ $status = "false" ];
+    then 
+        echo Tiller not running
+        exit 1
+    fi
+    ${SSH_EXEC} "kubectl cluster-info"
 }
 
 get_charts()
 {
     echo Fetching charts
-    ${SSH_EXEC} "rm -rf ./charts && git clone https://github.com/xtophs/charts.git && cd charts && git checkout cassandra-multi-dc"
+    ${SSH_EXEC} "rm -rf ./charts && git clone https://github.com/xtophs/charts.git && cd charts && git checkout ilb"
 }
 
 install_cassandra()
 {
-    # TODO Make sure tiller is ready
-
     echo installing cassandra
     ${SSH_EXEC} "helm install charts/incubator/cassandra"
 }
 
 set_seed_ip()
 {
-    # This is a hack for now. 
-    # Getting the IP of the first cassandra container as the Seed IP
-    # We should think about a more robust and more appropriate algorithm for that.
-
+    local RG=${1}
     local i=0
-    local status=$(${SSH_EXEC} kubectl get pods \
-        -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
-    # wait for 20 minutes
+
+    # Load balancer name defined in cassandra helm chart at
+    # https://github.com/CatalystCode/charts/blob/master/incubator/cassandra/templates/svc.yaml#L22
+
+    local ip=$(az resource show \
+        -g ${RG} \
+        --resource-type Microsoft.Network/loadBalancers \
+        -n ${RG}-internal \
+        --query properties.frontendIPConfigurations[0].properties.privateIPAddress -o tsv)
+
+    # wait for up to 20 minutes
    while [  $i -le 60 ]
     do
-        if [ $status = "true" ];
+        if [[ ! -z $ip ]];
         then 
             break
         fi
         
-        echo Wating for container to be ready $i  
+        echo Wating for ILB to be ready $i  
         sleep 20
         i=$[$i + 1]
-        status=$(${SSH_EXEC} kubectl get pods \
-            -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
+        ip=$(az resource show \
+            -g ${RG} \
+            --resource-type Microsoft.Network/loadBalancers \
+            -n ${RG}-internal \
+            --query properties.frontendIPConfigurations[0].properties.privateIPAddress -o tsv)
     done
 
-    if [[ $status = "true" ]];
+    if [[ ! -z $ip ]];
     then
-        SEED_IP=$( ${SSH_EXEC} kubectl get pods -o jsonpath='{.items[0].status.podIP}')
+        SEED_IP=${ip}
     fi
 
-    echo found container IP: ${SEED_IP}
+    echo found ILB IP: ${SEED_IP}
 }
 
 update_seeds()
@@ -363,13 +473,16 @@ install_helm
 get_charts
 install_cassandra 
 
-set_seed_ip
+set_seed_ip ${RESOURCE_GROUP_1}
 
 set_ssh_exec ${RESOURCE_GROUP_2}
 install_helm 
 get_charts
 update_seeds
 install_cassandra   
+
+# problem is that the ILB currently doesn't work ith CNI clusters. 
+# Need to revisit or manually configure the ILB
 
 echo Final status
 set_ssh_exec ${RESOURCE_GROUP_1}
