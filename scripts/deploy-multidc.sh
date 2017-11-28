@@ -27,18 +27,24 @@ SSH_PUBLIC_KEY=
 VNET_1_ADDRESS_PREFIX_1=${VNET_1_FIRST_TWO}.0.0/16
 VNET_2_ADDRESS_PREFIX_1=${VNET_2_FIRST_TWO}.0.0/16
 
-SUBNET_ADDRESS_PREFIX_1=${VNET_1_FIRST_TWO}.0.0/16
-SUBNET_ADDRESS_PREFIX_2=${VNET_2_FIRST_TWO}.0.0/16
+SUBNET_ADDRESS_PREFIX_1=${VNET_1_FIRST_TWO}.0.0/17
+SUBNET_ADDRESS_PREFIX_2=${VNET_2_FIRST_TWO}.0.0/17
 
 DNS_PREFIX_1=${RESOURCE_GROUP_1}
 DNS_PREFIX_2=${RESOURCE_GROUP_2}
+
+GWSUBNET_ADDRESS_PREFIX_1=${VNET_1_FIRST_TWO}.128.0/29
+GWSUBNET_ADDRESS_PREFIX_2=${VNET_2_FIRST_TWO}.128.0/29
+
+GATEWAY_1=GW-${LOCATION_1}
+GATEWAY_2=GW-${LOCATION_2}
 
 # --------------
 . ./scripts/general-helpers.sh
 . ./scripts/acs-helpers.sh 
 . ./scripts/network-helpers.sh 
 . ./scripts/cluster-helpers.sh
-. ./scripts/peering-helpers.sh
+. ./scripts/gateway-helpers.sh
 . ./scripts/cassandra-helpers.sh
 
 check_prereq()
@@ -84,34 +90,36 @@ rebuild_armtemplates ${CLUSTER_DEFINITION_1}
 rebuild_armtemplates ${CLUSTER_DEFINITION_2}
 
 echo VNET SPACES ${VNET_1_ADDRESS_PREFIX_1} ${SUBNET_ADDRESS_PREFIX_1} 
-create_rg_and_vnet ${RESOURCE_GROUP_1} ${LOCATION_1} ${VNET_1_ADDRESS_PREFIX_1} ${SUBNET_ADDRESS_PREFIX_1} 
-create_rg_and_vnet ${RESOURCE_GROUP_2} ${LOCATION_2} ${VNET_2_ADDRESS_PREFIX_1} ${SUBNET_ADDRESS_PREFIX_2} 
-
-deploy_peering ${RESOURCE_GROUP_1} ${RESOURCE_GROUP_2} ${VNET_NAME}
-deploy_peering ${RESOURCE_GROUP_2} ${RESOURCE_GROUP_1} ${VNET_NAME}
+create_rg_vnet_and_gw ${RESOURCE_GROUP_1} ${LOCATION_1} ${VNET_1_ADDRESS_PREFIX_1} ${SUBNET_ADDRESS_PREFIX_1} ${GATEWAY_1} ${GWSUBNET_ADDRESS_PREFIX_1}
+create_rg_vnet_and_gw ${RESOURCE_GROUP_2} ${LOCATION_2} ${VNET_2_ADDRESS_PREFIX_1} ${SUBNET_ADDRESS_PREFIX_2} ${GATEWAY_2} ${GWSUBNET_ADDRESS_PREFIX_2}
 
 deploy_cluster ${RESOURCE_GROUP_1} ${LOCATION_1} ${DNS_PREFIX_1}
 deploy_cluster ${RESOURCE_GROUP_2} ${LOCATION_2} ${DNS_PREFIX_2}
 
-wait_for_peering ${RESOURCE_GROUP_1} ${VNET_NAME}
-wait_for_peering ${RESOURCE_GROUP_2} ${VNET_NAME}
+wait_for_cluster ${RESOURCE_GROUP_1} deploy-${DNS_PREFIX_1}
+wait_for_cluster ${RESOURCE_GROUP_1} deploy-${DNS_PREFIX_1}
 
-wait_for_cluster ${RESOURCE_GROUP_1} deploy-${DNS_PREFIX_1}
-wait_for_cluster ${RESOURCE_GROUP_1} deploy-${DNS_PREFIX_1}
+wait_for_vnet_gateway ${RESOURCE_GROUP_1} ${GATEWAY_1}
+wait_for_vnet_gateway ${RESOURCE_GROUP_2} ${GATEWAY_2}
+
+deploy_connection ${RESOURCE_GROUP_1} ${GATEWAY_1} ${RESOURCE_GROUP_2} ${GATEWAY_2}
+deploy_connection ${RESOURCE_GROUP_2} ${GATEWAY_2} ${RESOURCE_GROUP_1} ${GATEWAY_1}
 
 set_ssh_exec ${RESOURCE_GROUP_1}
 
 install_helm
-get_charts
+branchName=cassandra-multi-dc
+get_charts ${branchName}
+
 install_cassandra 
 
 set_seed_ip ${RESOURCE_GROUP_1}
 
 set_ssh_exec ${RESOURCE_GROUP_2}
 install_helm 
-get_charts
+get_charts ${branchName}
 update_seeds
-install_cassandra   
+install_cassandra
 
 # problem is that the ILB currently doesn't work ith CNI clusters. 
 # Need to revisit or manually configure the ILB

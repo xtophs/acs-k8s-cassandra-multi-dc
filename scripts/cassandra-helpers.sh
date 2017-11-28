@@ -1,7 +1,8 @@
 get_charts()
 {
+    local BRANCH=${1}
     echo Fetching charts
-    ${SSH_EXEC} "rm -rf ./charts && git clone https://github.com/xtophs/charts.git && cd charts && git checkout ilb"
+    ${SSH_EXEC} "rm -rf ./charts && git clone https://github.com/xtophs/charts.git && cd charts && git checkout ${BRANCH}"
 }
 
 install_cassandra()
@@ -12,42 +13,32 @@ install_cassandra()
 
 set_seed_ip()
 {
-    local RG=${1}
+    # This is a hack for now. 
+    # Getting the IP of the first cassandra container as the Seed IP
+    # We should think about a more robust and more appropriate algorithm for that.
+
     local i=0
-
-    # Load balancer name defined in cassandra helm chart at
-    # https://github.com/CatalystCode/charts/blob/master/incubator/cassandra/templates/svc.yaml#L22
-
-    local ip=$(az resource show \
-        -g ${RG} \
-        --resource-type Microsoft.Network/loadBalancers \
-        -n ${RG}-internal \
-        --query properties.frontendIPConfigurations[0].properties.privateIPAddress -o tsv)
-
-    # wait for up to 20 minutes
+    local status=$(${SSH_EXEC} kubectl get pods -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
+    # wait for 20 minutes
    while [  $i -le 60 ]
     do
-        if [[ ! -z $ip ]];
+        if [ $status = "true" ];
         then 
             break
         fi
         
-        echo Wating for ILB to be ready $i  
+        echo Wating for container to be ready $i  
         sleep 20
         i=$[$i + 1]
-        ip=$(az resource show \
-            -g ${RG} \
-            --resource-type Microsoft.Network/loadBalancers \
-            -n ${RG}-internal \
-            --query properties.frontendIPConfigurations[0].properties.privateIPAddress -o tsv)
+        status=$(${SSH_EXEC} kubectl get pods -o jsonpath='{.items[0].status.containerStatuses[0].ready}')
     done
 
-    if [[ ! -z $ip ]];
+    if [[ $status = "true" ]];
     then
-        SEED_IP=${ip}
+        SEED_IP=$( ${SSH_EXEC} kubectl get pods -o jsonpath='{.items[0].status.podIP}')
     fi
 
-    echo found ILB IP: ${SEED_IP}
+    echo found container IP: ${SEED_IP}
 }
 
 update_seeds()

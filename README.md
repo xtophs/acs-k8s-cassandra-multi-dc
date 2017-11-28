@@ -6,6 +6,10 @@ These scripts deploy a Cassandra ring across 2 kubernetes clusters.
 - Clusters are configured to manage container IP addresses using CNI, to have one IP address space for hosts and containers.
 - Virtual Networks are connected via Virtual Network Gateways to allow for cross-region, cross-site or cross-cloud deployments. Connecting networks via peering would limit deployments to the same Azure Region.
 
+## Branches
+- *master* builds acs clusters configured for Azure CNI connected via VNET Gateways
+- *peering* builds acs clusters configured for Azure CNI connected via [Global VNET Peering](https://azure.microsoft.com/en-us/updates/global-vnet-peering-preview/) 
+
 ## How it works
 The script works in 2 phases. 
 

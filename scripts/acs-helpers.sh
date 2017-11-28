@@ -29,7 +29,7 @@ fixup_apimodel()
     jq ".properties.linuxProfile.ssh.publicKeys[0].keyData = \"${SSH_PUBLIC_KEY}\"" ${CLUSTER_DEF} > $tempfile && mv $tempfile ${CLUSTER_DEF}
     jq ".properties.servicePrincipalProfile.clientId = \"${SERVICE_PRINCIPAL}\"" ${CLUSTER_DEF} > $tempfile && mv $tempfile ${CLUSTER_DEF}
     jq ".properties.servicePrincipalProfile.secret = \"${SP_SECRET}\"" ${CLUSTER_DEF} > $tempfile && mv $tempfile ${CLUSTER_DEF}
-    firstIP=$(echo ${ADDRESS_PREFIX} | sed 's/\([0-9]*\).\([0-9]*\).*$/\1.\2.255.239/g')
+    firstIP=$(echo ${ADDRESS_PREFIX} | sed 's/\([0-9]*\).\([0-9]*\).*$/\1.\2.127.250/g')
     jq ".properties.masterProfile.firstConsecutiveStaticIP = \"${firstIP}\"" ${CLUSTER_DEF} > $tempfile && mv $tempfile ${CLUSTER_DEF}
     jq ".properties.masterProfile.vnetCidr = \"${ADDRESS_PREFIX}\"" ${CLUSTER_DEF} > $tempfile && mv $tempfile ${CLUSTER_DEF}
     
