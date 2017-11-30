@@ -115,7 +115,7 @@ The script is setting up 2 clusters with non-overlapping address spaces"
 
 ## Verifying Replication
 - Ssh into a container `kubectl exec -it $(kubectl get pods -o jsonpath='{ .items[0].metadata.name }') bash`
-- install pip `apt-get intall python-pip`
+- install pip `apt-get install python-pip`
 - (if you get an error like `ImportError: No module named cqlshlib`, then install the cassandra driver `pip install cassandra-driver` and set the environment variable `export CQLSH_NO_BUNDLED=true`, exit container, log back on)
 - install cqlsh `pip install cqlsh`
 - Connect Cassandra `cqlsh -u cassandra -p cassandra --cqlversion="3.4.4"`
